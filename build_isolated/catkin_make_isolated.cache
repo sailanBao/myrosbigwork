@@ -1,0 +1,2 @@
+bigwork
+-DCMAKE_BUILD_TYPE=RelWithDebInfo -G Unix Makefiles -DCATKIN_DEVEL_PREFIX=/home/fan/桌面/houseworks/bigwork/devel_isolated -DCMAKE_INSTALL_PREFIX=/home/fan/桌面/houseworks/bigwork/install_isolated

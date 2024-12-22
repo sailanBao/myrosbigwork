@@ -1,0 +1,8 @@
+prefix=/home/fan/桌面/houseworks/bigwork/install_isolated
+
+Name: bigwork
+Description: Description of bigwork
+Version: 0.0.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 

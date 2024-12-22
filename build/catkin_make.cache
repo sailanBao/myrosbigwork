@@ -1,0 +1,2 @@
+bigwork
+-DCATKIN_DEVEL_PREFIX=/home/fan/桌面/houseworks/bigwork/devel -DCMAKE_INSTALL_PREFIX=/home/fan/桌面/houseworks/bigwork/install -G Unix Makefiles
