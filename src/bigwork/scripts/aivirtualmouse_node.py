@@ -46,6 +46,7 @@ def draw_hands(img, handLms):
         h, w, c = img.shape
         cx, cy = int(lm.x * w), int(lm.y * h)
         cv2.circle(img, (cx, cy), 5, (255, 0, 255), cv2.FILLED)
+    mpDraw.draw_landmarks(img, handLms, mpHands.HAND_CONNECTIONS)
 
 def fingers_up(handLms):
     fingers = [False] * 5
@@ -93,12 +94,12 @@ while not rospy.is_shutdown():
             draw_hands(img, handLms)
             cv2.rectangle(img, (frameR, frameR), (wCam - frameR, hCam - frameR), (0, 255, 0), 2)
             lmList = [lm for lm in handLms.landmark]
+            fingers = fingers_up(handLms)
 
             # 2. 判断食指和中指是否伸出
             if len(lmList) != 0:
                 x1, y1 = int(lmList[8].x * wCam), int(lmList[8].y * hCam)
                 x2, y2 = int(lmList[12].x * wCam), int(lmList[12].y * hCam)
-                fingers = fingers_up(handLms)
 
                 # 3. 若只有食指伸出 则进入绘画模式
                 if fingers[1] and not fingers[2] and not fingers[3]:
