@@ -1,0 +1,8 @@
+prefix=/home/fan/桌面/houseworks/bigwork/devel
+
+Name: bigwork
+Description: Description of bigwork
+Version: 0.0.0
+Cflags: -I/home/fan/桌面/houseworks/bigwork/devel/include
+Libs: -L${prefix}/lib 
+Requires: cv_bridge geometry_msgs rospy sensor_msgs std_msgs std_srvs turtlesim message_runtime
