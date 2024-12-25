@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usrbin/env python
 
 import sys
 import os
@@ -10,7 +10,7 @@ import time
 from geometry_msgs.msg import Twist
 from std_msgs.msg import String
 
-wCam, hCam = 1080, 720
+wCam, hCam = 640, 480  # 调整分辨率以适配笔记本摄像头
 frameR = 100
 smoothening = 5
 
@@ -26,8 +26,8 @@ canvas = np.zeros((hCam, wCam, 3), np.uint8)
 
 # 初始化ROS节点
 rospy.init_node('aivirtualmouse_node', anonymous=True)
-turtle_pub = rospy.Publisher('/turtle1/cmd_vel', Twist, queue_size=10)
 command_pub = rospy.Publisher('/aivirtualmouse_command', String, queue_size=10)
+position_pub = rospy.Publisher('/aivirtualmouse_position', Twist, queue_size=10)
 rate = rospy.Rate(30)  # 30 Hz
 
 def publish_command(command):
@@ -35,11 +35,11 @@ def publish_command(command):
     msg.data = command
     command_pub.publish(msg)
 
-def publish_velocity(x, y):
-    cmd = Twist()
-    cmd.linear.x = x / 100.0  # 将像素值转换为速度值
-    cmd.angular.z = y / 100.0  # 将像素值转换为角速度值
-    turtle_pub.publish(cmd)
+def publish_position(x, y):
+    msg = Twist()
+    msg.linear.x = x / 100.0  # 将像素值转换为位置值
+    msg.linear.y = y / 100.0  # 将像素值转换为位置值
+    position_pub.publish(msg)
 
 def draw_hands(img, handLms):
     for id, lm in enumerate(handLms.landmark):
@@ -106,7 +106,7 @@ while not rospy.is_shutdown():
                     # 绘制圆心
                     cv2.circle(canvas, (x1, y1), 10, (255, 0, 255), -1)
                     publish_command("draw")
-                    publish_velocity(x1, y1)
+                    publish_position(x1, y1)
 
                 # 4. 若是食指和中指都伸出 则检测指头距离 距离够短则对应橡皮擦
                 if fingers[1] and fingers[2]:
@@ -115,14 +115,14 @@ while not rospy.is_shutdown():
                         # 绘制方形图标作为橡皮擦
                         cv2.rectangle(canvas, (pointInfo[4] - 20, pointInfo[5] - 20), (pointInfo[4] + 20, pointInfo[5] + 20), (0, 0, 0), -1)
                         publish_command("erase")
-                        publish_velocity(pointInfo[4], pointInfo[5])
+                        publish_position(pointInfo[4], pointInfo[5])
 
                 # 5. 若是食指、中指和无名指都伸出 则检测指头悬空
                 if is_finger_in_air(fingers):
                     # 绘制三角形标记当前点
                     cv2.drawMarker(img, (x1, y1), (0, 255, 0), cv2.MARKER_TRIANGLE_UP, 20, 2)
                     publish_command("hover")
-                    publish_velocity(x1, y1)
+                    publish_position(x1, y1)
 
     # 将画布叠加到原始图像上
     gray_canvas = cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY)
