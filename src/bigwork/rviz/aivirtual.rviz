@@ -1,0 +1,43 @@
+<rviz>
+  <Configuration version="0.3">
+    <GlobalOptions
+      back_face_cull="false"
+      background_color="48;48;48"
+      background_color_alpha="1.0"
+      fixed_frame="world"  <!-- 修改为world -->
+      light_enabled="true"
+      light_ground_plane_only="false"
+      laundry_remote_md5="58f85c7a17c051b9c1f24461cc82b626"
+      measured_frame_rate="29"
+      minimum_frame_rate="29"
+      multiplier="1.0"
+      rog_alpha="0.0"
+      rog_enabled="false"
+      roi_mocap_in_use="false"
+      screen_res="1920x1080"
+      stereo_enabled="false"
+      stereo_focal_distance="1.0"
+      stereo_frame_id="unregistered"
+      terrain_enabled="false"
+      terrain_texture_id="unregistered"
+      window_fullscreen="false"
+    />
+
+    <Scope name="My Visualizations">
+      <Display name="/visualization.Markers" type="marker">
+        <BoolProperty name="Approximate" value="false"/>
+        <ColorProperty name="Color" value="255;0;0;255"/>  <!-- 修改为不透明的红色 -->
+        <FloatProperty name="Duration" value="0"/>
+        <StringProperty name="Frame ID" value="world"/>  <!-- 修改为StringProperty和world -->
+        <StringProperty name="Marker ID" value="-1"/>  <!-- 修改为StringProperty -->
+        <StringProperty name="Marker ID propagation Policy" value="拒绝"/>
+        <StringProperty name="NS" value=""/>
+        <BoolProperty name="Queue queue Action" value="false"/>
+        <BoolProperty name="RGBA Scale enable" value="false"/>
+        <FloatProperty name="RGBA Scale Value" value="1.0"/>
+        <DoubleProperty name="Scale factor" value="1.0"/>
+        <!-- 其他可能的属性配置 -->
+      </Display>
+    </Scope>
+  </Configuration>
+</rviz>
