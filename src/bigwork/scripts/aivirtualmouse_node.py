@@ -1,156 +1,115 @@
-#!/usrbin/env python
-
-import sys
-import os
 import rospy
-import cv2
 import mediapipe as mp
-import numpy as np
-import time
 from geometry_msgs.msg import Twist
-from std_msgs.msg import String
+import cv2  # 用于捕获摄像头图像
 
-wCam, hCam = 640, 480  # 调整分辨率以适配笔记本摄像头
-frameR = 100
-smoothening = 5
-
-cap = cv2.VideoCapture(0)  # 若使用笔记本自带摄像头则编号为0  若使用外接摄像头 则更改为1或其他编号
-cap.set(3, wCam)
-cap.set(4, hCam)
-pTime = 0
-
-mpHands = mp.solutions.hands
-hands = mpHands.Hands()
-mpDraw = mp.solutions.drawing_utils
-canvas = np.zeros((hCam, wCam, 3), np.uint8)
-
-# 初始化ROS节点
+# 初始化 ROS 节点
 rospy.init_node('aivirtualmouse_node', anonymous=True)
-command_pub = rospy.Publisher('/aivirtualmouse_command', String, queue_size=10)
-position_pub = rospy.Publisher('/aivirtualmouse_position', Twist, queue_size=10)
-rate = rospy.Rate(30)  # 30 Hz
 
-def publish_command(command):
-    msg = String()
-    msg.data = command
-    command_pub.publish(msg)
+# 创建 MediaPipe 手部模型
+mpHands = mp.solutions.hands
+hands = mpHands.Hands(min_detection_confidence=0.5, min_tracking_confidence=0.5)
+mpDraw = mp.solutions.drawing_utils
 
-def publish_position(x, y):
-    msg = Twist()
-    msg.linear.x = x / 100.0  # 将像素值转换为位置值
-    msg.linear.y = y / 100.0  # 将像素值转换为位置值
-    position_pub.publish(msg)
+# 创建 Twist 发布者
+cmd_vel_pub = rospy.Publisher('/turtle1/cmd_vel', Twist, queue_size=10)
 
-def draw_hands(img, handLms):
-    for id, lm in enumerate(handLms.landmark):
-        h, w, c = img.shape
-        cx, cy = int(lm.x * w), int(lm.y * h)
-        cv2.circle(img, (cx, cy), 5, (255, 0, 255), cv2.FILLED)
-    mpDraw.draw_landmarks(img, handLms, mpHands.HAND_CONNECTIONS)
-
+# 定义手指抬起的函数
 def fingers_up(handLms):
-    fingers = [False] * 5
-    ids = [4, 8, 12, 16, 20]  # 手指关键点的 id
-    for i, id in enumerate(ids):
-        if id == 4:  # 拇指
-            if handLms.landmark[id].x < handLms.landmark[id - 1].x:
-                fingers[i] = True
-        else:  # 食指、中指、无名指、小指
-            if handLms.landmark[id].y < handLms.landmark[id - 2].y:
-                fingers[i] = True
+    fingers = []
+    for i in range(5):  # 5 个手指
+        if len(handLms.landmark) >= mpHands.HandLandmark.INDEX_FINGER_TIP + i * 4 + 1:
+            if handLms.landmark[mpHands.HandLandmark.INDEX_FINGER_TIP + i * 4].y < handLms.landmark[mpHands.HandLandmark.INDEX_FINGER_PIP + i * 4].y:
+                fingers.append(1)  # 手指抬起
+            else:
+                fingers.append(0)  # 手指放下
+        else:
+            fingers.append(0)  # 如果索引超出范围，假设手指放下
     return fingers
 
-def find_distance(p1, p2, handLms, img, draw=True):
-    x1, y1 = int(handLms.landmark[p1].x * wCam), int(handLms.landmark[p1].y * hCam)
-    x2, y2 = int(handLms.landmark[p2].x * wCam), int(handLms.landmark[p2].y * hCam)
-    cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
-    length = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-    if draw:
-        cv2.line(img, (x1, y1), (x2, y2), (255, 0, 255), 3)
-        cv2.circle(img, (x1, y1), 10, (255, 0, 255), cv2.FILLED)
-        cv2.circle(img, (x2, y2), 10, (255, 0, 255), cv2.FILLED)
-        cv2.circle(img, (cx, cy), 10, (0, 0, 255), cv2.FILLED)
-    return length, img, [x1, y1, x2, y2, cx, cy]
+# 定义发布命令的函数
+def publish_command(command):
+    twist = Twist()
+    if command == "hover":
+        twist.linear.x = 0.0
+        twist.angular.z = 0.0
+    elif command == "forward":
+        twist.linear.x = 2.0  # 增加线速度
+        twist.angular.z = 0.0
+    elif command == "left":
+        twist.linear.x = 0.0
+        twist.angular.z = 4.0  # 增加角速度
+    elif command == "right":
+        twist.linear.x = 0.0
+        twist.angular.z = -4.0  # 增加角速度
+    elif command == "backward":
+        twist.linear.x = -2.0  # 减少线速度
+        twist.angular.z = 0.0
+    else:
+        twist.linear.x = 0.0
+        twist.angular.z = 0.0
+    cmd_vel_pub.publish(twist)
+    print(f"Published {command} command with linear.x={twist.linear.x} and angular.z={twist.angular.z}")
 
-def is_finger_in_air(fingers):
-    return all(fingers[1:4])
+# 定义主函数
+def main():
+    cap = cv2.VideoCapture(0)  # 打开摄像头
 
-while not rospy.is_shutdown():
-    success, img = cap.read()
-    if not success:
-        rospy.logerr("Error: 无法读取摄像头帧")
-        continue
+    if not cap.isOpened():
+        rospy.logerr("Failed to open camera")
+        return
 
-    img = cv2.flip(img, 1)  # 水平翻转，使图像更自然
+    rate = rospy.Rate(30)  # 提高发布频率到 30 Hz
 
-    # 确保 img 的大小与 wCam, hCam 一致
-    img = cv2.resize(img, (wCam, hCam))
+    while not rospy.is_shutdown():
+        ret, frame = cap.read()
+        if not ret:
+            rospy.logerr("Failed to capture frame from camera")
+            continue
 
-    # 1. 检测手部 得到手指关键点坐标
-    imgRGB = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    results = hands.process(imgRGB)
-    if results.multi_hand_landmarks:
-        for handLms in results.multi_hand_landmarks:
-            draw_hands(img, handLms)
-            cv2.rectangle(img, (frameR, frameR), (wCam - frameR, hCam - frameR), (0, 255, 0), 2)
-            lmList = [lm for lm in handLms.landmark]
-            fingers = fingers_up(handLms)
+        # 将图像从 BGR 转换为 RGB
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        rgb_frame.flags.writeable = False
 
-            # 2. 判断食指和中指是否伸出
-            if len(lmList) != 0:
-                x1, y1 = int(lmList[8].x * wCam), int(lmList[8].y * hCam)
-                x2, y2 = int(lmList[12].x * wCam), int(lmList[12].y * hCam)
+        # 处理图像以检测手部
+        results = hands.process(rgb_frame)
 
-                # 3. 若只有食指伸出 则进入绘画模式
-                if fingers[1] and not fingers[2] and not fingers[3]:
-                    # 绘制圆心
-                    cv2.circle(canvas, (x1, y1), 10, (255, 0, 255), -1)
-                    publish_command("draw")
-                    publish_position(x1, y1)
+        rgb_frame.flags.writeable = True
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
-                # 4. 若是食指和中指都伸出 则检测指头距离 距离够短则对应橡皮擦
-                if fingers[1] and fingers[2]:
-                    length, img, pointInfo = find_distance(8, 12, handLms, img)
-                    if length < 40:
-                        # 绘制方形图标作为橡皮擦
-                        cv2.rectangle(canvas, (pointInfo[4] - 20, pointInfo[5] - 20), (pointInfo[4] + 20, pointInfo[5] + 20), (0, 0, 0), -1)
-                        publish_command("erase")
-                        publish_position(pointInfo[4], pointInfo[5])
+        if results.multi_hand_landmarks:
+            for hand_id, handLms in enumerate(results.multi_hand_landmarks):
+                fingers = fingers_up(handLms)
+                print(f"Fingers up: {fingers}")
 
-                # 5. 若是食指、中指和无名指都伸出 则检测指头悬空
-                if is_finger_in_air(fingers):
-                    # 绘制三角形标记当前点
-                    cv2.drawMarker(img, (x1, y1), (0, 255, 0), cv2.MARKER_TRIANGLE_UP, 20, 2)
+                # 根据手指的状态发布命令
+                if fingers == [1, 0, 0, 0, 0]:  # 伸出食指
+                    publish_command("forward")
+                elif fingers == [0, 1, 0, 0, 0]:  # 伸出中指
+                    publish_command("left")
+                elif fingers == [0, 0, 1, 0, 0]:  # 伸出无名指
+                    publish_command("right")
+                elif fingers == [0, 0, 0, 1, 0]:  # 伸出小拇指
+                    publish_command("backward")
+                else:
                     publish_command("hover")
-                    publish_position(x1, y1)
 
-    # 将画布叠加到原始图像上
-    gray_canvas = cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY)
-    _, inv_canvas = cv2.threshold(gray_canvas, 1, 255, cv2.THRESH_BINARY_INV)
-    inv_canvas = cv2.cvtColor(inv_canvas, cv2.COLOR_GRAY2BGR)
+                # 绘制手部关键点
+                mpDraw.draw_landmarks(frame, handLms, mpHands.HAND_CONNECTIONS)
+        else:
+            print("No hand detected")
 
-    # 确保 inv_canvas 的大小与 img 一致
-    if inv_canvas.shape != img.shape:
-        inv_canvas = cv2.resize(inv_canvas, (img.shape[1], img.shape[0]))
-        canvas = cv2.resize(canvas, (img.shape[1], img.shape[0]))
+        # 显示图像
+        cv2.imshow('Hand Tracking', frame)
 
-    img = cv2.bitwise_and(img, inv_canvas)
-    img = cv2.bitwise_or(img, canvas)
+        # 检查是否按下 'q' 键退出
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
 
-    cTime = time.time()
-    fps = 1 / (cTime - pTime)
-    pTime = cTime
-    cv2.putText(img, f'fps:{int(fps)}', (15, 25), cv2.FONT_HERSHEY_PLAIN, 2, (255, 0, 255), 2)
+        rate.sleep()
 
-    # 调整窗口大小和位置
-    cv2.namedWindow("Image", cv2.WINDOW_NORMAL)
-    cv2.resizeWindow("Image", wCam, hCam)
-    cv2.moveWindow("Image", 0, 0)
+    cap.release()
+    cv2.destroyAllWindows()
 
-    cv2.imshow("Image", img)
-    cv2.imshow("Canvas", canvas)
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
-
-cap.release()
-cv2.destroyAllWindows()
+if __name__ == "__main__":
+    main()
