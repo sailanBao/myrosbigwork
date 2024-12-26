@@ -1,0 +1,10 @@
+<launch>
+  <!-- 启动 turtlesim 节点 -->
+  <node name="turtlesim_node" pkg="turtlesim" type="turtlesim_node" output="screen"/>
+
+  <!-- 启动 aivirtualmouse_node.py 节点 -->
+  <node name="aivirtualmouse_node" pkg="bigwork" type="aivirtualmouse_node.py" output="screen"/>
+
+  <!-- 启动 turtlesim_controller.py 节点 -->
+  <node name="turtlesim_controller" pkg="bigwork" type="turtlesim_controller.py" output="screen"/>
+</launch>
